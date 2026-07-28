@@ -1,0 +1,166 @@
+## Description
+
+This detection identifies the execution of **rundll32.exe** using **Microsoft Sysmon Event ID 1 (Process Creation)**.
+
+`rundll32.exe` is a legitimate Microsoft utility used to execute functions exported by Dynamic Link Libraries (DLLs). While commonly used by Windows and installed software, it is also frequently abused by threat actors to execute malicious DLLs, bypass application controls, and evade detection by leveraging trusted Windows binaries.
+
+Monitoring Rundll32 execution provides defenders with visibility into potential Living-off-the-Land Binary (LOLBin) abuse and suspicious DLL execution.
+
+---
+
+# MITRE ATT&CK
+
+| Tactic | Technique | ID |
+|---------|-----------|----|
+| Defense Evasion | System Binary Proxy Execution: Rundll32 | T1218.011 |
+
+---
+
+# Severity
+
+**High**
+
+Although Rundll32 is a legitimate Windows component, unexpected execution—particularly involving unusual DLL paths or suspicious parent processes—should be investigated immediately.
+
+---
+
+# Data Source
+
+**Telemetry Source**
+
+- Microsoft Sysmon
+
+**Event ID**
+
+- Event ID 1 – Process Creation
+
+**Splunk Index**
+
+- `index=sysmon`
+
+---
+
+# Detection Logic
+
+This detection searches for Sysmon Process Creation events where the executed image is **rundll32.exe**.
+
+The search extracts:
+
+- Timestamp
+- User Account
+- Executed Process
+- Command Line
+- Parent Process
+
+This enables analysts to determine:
+
+- Who executed Rundll32
+- Which DLL was loaded
+- Which process launched Rundll32
+- Whether the execution appears legitimate
+
+---
+
+index=sysmon EventCode=1 Image="*rundll32.exe"
+| where NOT like(CommandLine,"%shell32.dll%")
+| table _time User CommandLine ParentImage
+
+---
+
+# Validation Steps
+
+The following command was executed on the Windows 11 endpoint:
+
+```cmd
+rundll32.exe shell32.dll,Control_RunDLL
+```
+
+This launches the Windows Control Panel and generates a Sysmon Process Creation event.
+
+The resulting event was successfully forwarded to Splunk using the Splunk Universal Forwarder.
+
+---
+
+# Expected Output
+
+The detection should display:
+
+- Timestamp
+- User Account
+- Executed Process
+- Command Line
+- Parent Process
+
+# False Positives
+
+Legitimate Rundll32 activity may occur during:
+
+- Windows Control Panel operations
+- Printer management
+- Device configuration
+- Software installation
+- Microsoft Office
+- Windows Updates
+- Driver installation
+
+Analysts should focus on unusual DLL locations or suspicious command-line arguments rather than all Rundll32 executions.
+
+---
+
+# Investigation Tips
+
+When investigating Rundll32 execution, analysts should verify:
+
+- Was Rundll32 launched by an expected process?
+- Which DLL was executed?
+- Is the DLL located in a trusted directory?
+- Was Rundll32 executed immediately after PowerShell or Command Prompt?
+- Was the DLL unsigned or located in a user-writable directory?
+- Was the activity followed by registry modifications, file creation, or network connections?
+
+High-risk indicators include:
+
+- DLLs executing from:
+
+  - `%TEMP%`
+  - `%APPDATA%`
+  - `Downloads`
+  - User profile directories
+
+- Obfuscated command-line arguments
+- Execution from Office applications
+- Execution from script interpreters
+
+---
+
+# Detection Outcome
+
+✅ Successfully detected Rundll32 execution during validation.
+
+The detection confirmed that:
+
+- Sysmon Event ID 1 was successfully generated.
+- The Splunk Universal Forwarder forwarded the event correctly.
+- Splunk indexed the Rundll32 execution event for analyst investigation.
+
+---
+
+# Analyst Notes
+
+Rundll32 is one of the most commonly abused Windows LOLBins because it allows adversaries to execute malicious DLLs while appearing to use a trusted Microsoft binary. This technique is frequently observed in malware families, red-team frameworks, and post-exploitation toolkits.
+
+While legitimate Rundll32 activity is expected within Windows environments, executions involving unusual DLL paths, suspicious parent processes, or uncommon command-line arguments should be treated as high-priority investigations.
+
+This detection should be correlated with:
+
+- File Creation (Sysmon Event ID 11)
+- Registry Modification (Sysmon Event ID 13)
+- PowerShell Execution
+- Scheduled Task Creation
+- Service Creation
+- Network Connections
+
+to build a comprehensive view of attacker activity.
+
+
+# SPL Query
