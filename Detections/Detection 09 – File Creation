@@ -1,0 +1,158 @@
+## Description
+
+This detection identifies **Microsoft Sysmon Event ID 11 (File Create)**, which records when a new file is created on the monitored endpoint.
+
+Monitoring file creation events provides defenders with visibility into malware payload drops, script creation, persistence mechanisms, and suspicious file activity. Threat actors frequently create files during execution, privilege escalation, persistence, and data staging.
+
+This detection enables analysts to identify unexpected file creation events and investigate potential malicious activity.
+
+---
+
+# MITRE ATT&CK
+
+| Tactic | Technique | ID |
+|---------|-----------|----|
+| Defense Evasion | Masquerading | T1036 |
+| Persistence | Boot or Logon Autostart Execution | T1547 |
+| Execution | User Execution | T1204 |
+
+---
+
+# Severity
+
+**Medium**
+
+File creation occurs constantly during normal Windows operation. However, files created in sensitive directories or immediately following suspicious process execution should be investigated.
+
+---
+
+# Data Source
+
+**Telemetry Source**
+
+- Microsoft Sysmon
+
+**Event ID**
+
+- Event ID 11 – File Create
+
+**Splunk Index**
+
+- `index=sysmon`
+
+---
+
+# Detection Logic
+
+This detection searches for Sysmon File Creation events.
+
+The search displays:
+
+- Timestamp
+- Hostname
+- User Account
+- Executable responsible for creating the file
+- Target filename
+
+This enables analysts to determine:
+
+- Which process created the file
+- Where the file was written
+- Which user initiated the activity
+
+---
+
+# SPL Query
+
+index=sysmon EventCode=11
+(TargetFilename="*AppData*" OR TargetFilename="*Temp*" OR TargetFilename="*Startup*")
+| table _time Computer User Image TargetFilename
+| sort -_time
+
+
+---
+
+# Validation Steps
+
+A file creation event was generated on the Windows 11 endpoint using PowerShell.
+
+```powershell
+New-Item C:\Temp\LabTest.txt -ItemType File
+```
+
+Alternatively, the file was created manually using:
+
+```
+Right Click
+→ New
+→ Text Document
+```
+
+Sysmon recorded the file creation event and the Splunk Universal Forwarder successfully forwarded the telemetry to Splunk Enterprise.
+
+---
+
+# Expected Output
+
+The detection should return:
+
+- Timestamp
+- Computer Name
+- User Account
+- Executing Process
+- Target Filename
+
+# False Positives
+
+Legitimate file creation events may include:
+
+- Microsoft Office
+- Windows Updates
+- Browser downloads
+- Software installations
+- Log file generation
+- User document creation
+- Antivirus software
+
+Analysts should investigate unusual directories, unexpected processes, or suspicious filenames.
+
+---
+
+# Investigation Tips
+
+When reviewing file creation events, analysts should verify:
+
+- Was the file created by an expected application?
+- Is the filename suspicious?
+- Was the file created in a sensitive directory?
+- Did PowerShell or Command Prompt create the file?
+- Was the file immediately executed?
+- Was the activity preceded by encoded PowerShell, Certutil, or Rundll32?
+
+Pay particular attention to files created in locations such as:
+
+- `C:\Users\<User>\AppData`
+- `C:\ProgramData`
+- `C:\Windows\Temp`
+- Startup folders
+- Scheduled Task directories
+
+---
+
+# Detection Outcome
+
+✅ Successfully detected file creation during validation.
+
+The detection confirmed that:
+
+- Sysmon Event ID 11 was successfully generated.
+- The Splunk Universal Forwarder forwarded the event correctly.
+- Splunk indexed the file creation telemetry for analyst investigation.
+
+---
+
+# Analyst Notes
+
+File creation telemetry is an important component of endpoint monitoring. Threat actors commonly create payloads, scripts, scheduled task files, persistence mechanisms, and temporary artifacts during an intrusion.
+
+Although file creation is a normal operating system activity, correlating these events with PowerShell execution, Command Prompt activity, Certutil usage, or administrative logons significantly improves detection fidelity and helps identify malicious behavior more effectively.
