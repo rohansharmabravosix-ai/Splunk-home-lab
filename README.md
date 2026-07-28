@@ -295,7 +295,6 @@ The next phase of this project focuses on Detection Engineering.
 
 Upcoming work includes:
 
-- Writing 15–20 SPL detection queries
 - Building SOC dashboards
 - Creating correlation searches
 - Building notable alerts
