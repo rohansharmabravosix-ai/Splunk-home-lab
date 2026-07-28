@@ -1,0 +1,160 @@
+## Description
+
+This detection identifies the execution of the **Windows Command Prompt (cmd.exe)** using **Microsoft Sysmon Event ID 1 (Process Creation)**.
+
+Command Prompt is a legitimate Windows administration utility but is also heavily abused by attackers for executing reconnaissance commands, launching malware, creating persistence mechanisms, and running Living-off-the-Land Binaries (LOLBins).
+
+Monitoring `cmd.exe` execution provides defenders with visibility into command-line activity that may indicate malicious behavior.
+
+---
+
+# MITRE ATT&CK
+
+| Tactic | Technique | ID |
+|---------|-----------|----|
+| Execution | Windows Command Shell | T1059.003 |
+
+---
+
+# Severity
+
+**Medium**
+
+Command Prompt is commonly used by administrators and users; however, unexpected or suspicious command execution should be investigated.
+
+---
+
+# Data Source
+
+**Telemetry Source**
+
+- Microsoft Sysmon
+
+**Event ID**
+
+- Event ID 1 – Process Creation
+
+**Splunk Index**
+
+- `index=sysmon`
+
+---
+
+# Detection Logic
+
+This detection searches for Sysmon Process Creation events where the executed image is **cmd.exe**.
+
+The query extracts:
+
+- Timestamp
+- User Account
+- Executed Process
+- Command Line
+- Parent Process
+
+This enables analysts to determine:
+
+- Who launched Command Prompt
+- Which process started it
+- The exact command that was executed
+
+---
+
+# SPL Query
+
+```spl
+index=sysmon EventCode=1 Image="*cmd.exe"
+| table _time User CommandLine ParentImage
+| sort -_time
+```
+
+---
+
+# Validation Steps
+
+The following commands were executed from Command Prompt on the Windows 11 endpoint:
+
+```cmd
+whoami
+
+hostname
+
+ipconfig
+
+net user
+```
+
+These commands generated Sysmon Process Creation events which were successfully forwarded to Splunk using the Splunk Universal Forwarder.
+
+---
+
+# Expected Output
+
+The search should return:
+
+- Timestamp
+- User Account
+- cmd.exe
+- Command Line
+- Parent Process
+
+Example:
+
+| Time | User | Image | Parent Process |
+|------|------|-------|----------------|
+| 2026-07-27 19:12 | Windows11Lab\User | cmd.exe | explorer.exe
+
+# False Positives
+
+Legitimate Command Prompt activity includes:
+
+- System administration
+- Network troubleshooting
+- Software installation
+- Automation scripts
+- IT support activities
+- Batch file execution
+
+Analysts should use surrounding context before classifying activity as malicious.
+
+---
+
+# Investigation Tips
+
+When reviewing Command Prompt execution, analysts should verify:
+
+- Was the user expected to launch Command Prompt?
+- Which parent process started cmd.exe?
+- Does the command line contain suspicious commands?
+- Was Command Prompt launched from an unusual directory?
+- Were multiple Command Prompt sessions created in a short period?
+- Was cmd.exe followed by PowerShell, Certutil, Rundll32, or network activity?
+
+Particular attention should be given to commands involving:
+
+- User enumeration
+- Network discovery
+- Scheduled tasks
+- Registry modifications
+- Service creation
+- Encoded or obfuscated commands
+
+---
+
+# Detection Outcome
+
+✅ Successfully detected Command Prompt execution generated during validation.
+
+The detection confirmed that:
+
+- Sysmon Process Creation events were successfully collected.
+- Command Prompt executions were forwarded to Splunk.
+- Command-line arguments were available for analyst investigation.
+
+---
+
+# Analyst Notes
+
+Command Prompt remains one of the most frequently abused Windows utilities during post-exploitation. While many executions are legitimate, monitoring `cmd.exe` provides valuable visibility into attacker behavior, especially when correlated with other detections such as PowerShell execution, registry modifications, scheduled task creation, or network discovery.
+
+This detection forms an important part of endpoint visibility and should be used alongside additional behavioral analytics to identify malicious command-line activity.
