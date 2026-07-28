@@ -1,0 +1,150 @@
+## Description
+
+This detection identifies the execution of **Certutil (certutil.exe)** using **Microsoft Sysmon Event ID 1 (Process Creation)**.
+
+Certutil is a legitimate Microsoft command-line utility used to manage certificates and certificate services. However, because it is installed by default on Windows systems, threat actors frequently abuse it as a **Living-off-the-Land Binary (LOLBin)** to download malicious payloads, encode or decode files, and evade application control policies.
+
+Monitoring Certutil execution helps defenders identify suspicious activity associated with malware delivery and post-exploitation.
+
+---
+
+# MITRE ATT&CK
+
+| Tactic | Technique | ID |
+|---------|-----------|----|
+| Defense Evasion | System Binary Proxy Execution: Certutil | T1218.010 |
+| Command and Control | Ingress Tool Transfer | T1105 |
+
+---
+
+# Severity
+
+**High**
+
+Certutil is rarely used by standard users. Unexpected execution, particularly with download or encoding arguments, should be investigated immediately.
+
+---
+
+# Data Source
+
+**Telemetry Source**
+
+- Microsoft Sysmon
+
+**Event ID**
+
+- Event ID 1 – Process Creation
+
+**Splunk Index**
+
+- `index=sysmon`
+
+---
+
+# Detection Logic
+
+This detection searches for Sysmon Process Creation events where the executed image is **certutil.exe**.
+
+The search extracts:
+
+- Timestamp
+- User Account
+- Executed Process
+- Command Line
+- Parent Process
+
+This enables analysts to identify how Certutil was executed and whether suspicious command-line arguments were used.
+
+---
+Spl Query
+
+
+index=sysmon EventCode=1 Image="*certutil.exe"
+(CommandLine="*-urlcache*" OR CommandLine="*-decode*" OR CommandLine="*-encode*" OR CommandLine="*-verifyctl*")
+| table _time User CommandLine ParentImage
+| sort -_time
+
+---
+
+# Validation Steps
+
+The following command was executed on the Windows 11 endpoint:
+
+```cmd
+certutil -encode C:\Temp\LabTest.txt C:\Temp\Encoded.txt
+```
+
+Alternatively, Certutil may be validated using:
+
+```cmd
+certutil -hashfile C:\Temp\LabTest.txt SHA256
+```
+
+The command generated a Sysmon Process Creation event which was successfully forwarded to Splunk using the Splunk Universal Forwarder.
+
+---
+
+# Expected Output
+
+The detection should display:
+
+- Timestamp
+- User Account
+- Executed Process
+- Command Line
+- Parent Process
+
+# False Positives
+
+Legitimate Certutil activity may include:
+
+- Certificate management
+- Certificate validation
+- PKI administration
+- Hash generation
+- Security troubleshooting
+
+In most enterprise environments, Certutil usage is relatively uncommon and should be reviewed carefully.
+
+---
+
+# Investigation Tips
+
+When investigating Certutil execution, analysts should verify:
+
+- Was Certutil launched by an expected user?
+- Was the parent process PowerShell or Command Prompt?
+- Does the command line contain download, encode, or decode operations?
+- Was Certutil followed by execution of a newly created file?
+- Were files written to unusual directories?
+
+Pay particular attention to arguments such as:
+
+- `-urlcache`
+- `-split`
+- `-decode`
+- `-encode`
+- `-verifyctl`
+
+These switches are commonly observed in malicious activity.
+
+---
+
+# Detection Outcome
+
+✅ Successfully detected Certutil execution during validation.
+
+The detection confirmed that:
+
+- Sysmon Event ID 1 was successfully generated.
+- Splunk Universal Forwarder forwarded the event correctly.
+- Splunk indexed the Certutil execution event for analyst investigation.
+
+---
+
+# Analyst Notes
+
+Certutil is one of the most frequently abused Windows LOLBins because it is digitally signed by Microsoft and available by default on most Windows systems. Adversaries commonly use it to download payloads, transfer files, encode or decode malicious content, and bypass application control mechanisms.
+
+This detection provides valuable visibility into suspicious Certutil activity and should be correlated with file creation events, PowerShell execution, registry modifications, scheduled task creation, and network connections to identify potential malware delivery or post-exploitation behavior.
+
