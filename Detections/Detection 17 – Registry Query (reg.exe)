@@ -1,0 +1,158 @@
+## Description
+
+This detection identifies execution of the **Windows Registry command-line utility (`reg.exe`)** using **Microsoft Sysmon Event ID 1 (Process Creation)**.
+
+`reg.exe` is a legitimate Windows utility used to query, add, modify, export, import, and delete registry keys and values. Adversaries frequently use `reg.exe` during the reconnaissance phase to enumerate operating system configuration, installed software, security products, and persistence locations.
+
+Monitoring Registry Query activity provides defenders with visibility into potential discovery and reconnaissance behavior.
+
+---
+
+# MITRE ATT&CK
+
+| Tactic | Technique | ID |
+|---------|-----------|----|
+| Discovery | Query Registry | T1012 |
+
+---
+
+# Severity
+
+**Medium**
+
+Registry queries occur during normal administrative activity. However, repeated or unusual registry enumeration may indicate attacker reconnaissance and should be investigated.
+
+---
+
+# Data Source
+
+**Telemetry Source**
+
+- Microsoft Sysmon
+
+**Event ID**
+
+- Event ID 1 – Process Creation
+
+**Splunk Index**
+
+- `index=sysmon`
+
+---
+
+# Detection Logic
+
+This detection searches for Sysmon Process Creation events where the executed image is **reg.exe**.
+
+The query returns:
+
+- Timestamp
+- User Account
+- Command Line
+- Parent Process
+
+This allows analysts to determine which registry query was executed and by whom.
+
+---
+
+# SPL Query
+
+index=sysmon EventCode=1 Image="*reg.exe" CommandLine="*query*"
+| table _time User CommandLine ParentImage
+| sort -_time
+
+---
+
+# Validation Steps
+
+The following command was executed on the Windows 11 endpoint:
+
+```cmd
+reg query HKCU\Software
+```
+
+Additional validation examples include:
+
+```cmd
+reg query HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion
+
+reg query HKLM\SYSTEM\CurrentControlSet\Services
+```
+
+The execution generated a Sysmon Process Creation event which was successfully forwarded to Splunk using the Splunk Universal Forwarder.
+
+---
+
+# Expected Output
+
+The detection should display:
+
+- Timestamp
+- User Account
+- Command Line
+- Parent Process
+
+
+# False Positives
+
+Legitimate Registry Query activity may include:
+
+- System administration
+- Software installation
+- Enterprise inventory tools
+- Endpoint management solutions
+- Troubleshooting
+- Windows configuration scripts
+
+Registry enumeration is common during administration and should be evaluated alongside the overall activity of the user.
+
+---
+
+# Investigation Tips
+
+When investigating Registry Query activity, analysts should verify:
+
+- Which registry path was queried?
+- Was the user expected to perform administrative tasks?
+- Was the query followed by registry modifications?
+- Was the registry enumeration immediately followed by PowerShell or Command Prompt activity?
+- Was the activity associated with discovery commands such as `whoami`, `hostname`, or `ipconfig`?
+
+High-interest registry paths include:
+
+- `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion`
+- `HKLM\SYSTEM\CurrentControlSet\Services`
+- `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`
+- Windows Defender configuration keys
+- Security product registry locations
+
+Correlate this detection with:
+
+- PowerShell Execution
+- Account Enumeration
+- Network Discovery
+- Registry Modification
+- File Creation
+- Privileged Logons
+
+---
+
+# Detection Outcome
+
+✅ Successfully detected Registry Query execution during validation.
+
+The detection confirmed that:
+
+- Sysmon Event ID 1 was successfully generated.
+- Splunk Universal Forwarder forwarded the telemetry correctly.
+- Splunk indexed the Registry Query event for analyst investigation.
+
+---
+
+# Analyst Notes
+
+Registry enumeration is a common reconnaissance technique used by adversaries to understand the target environment before executing additional attack stages. Attackers often inspect registry locations to identify installed software, operating system configuration, antivirus products, startup entries, and persistence mechanisms.
+
+Although registry queries are legitimate administrative operations, repeated enumeration of security-related or persistence-related registry paths should receive additional scrutiny, especially when combined with PowerShell execution, scheduled task creation, service manipulation, or registry modification events.
+
+This detection complements Detection 10 (Registry Modification) by providing visibility into reconnaissance activity before configuration changes occur.
