@@ -1,0 +1,165 @@
+## Description
+
+This detection identifies the execution of **Windows Management Instrumentation (WMI)** queries performed through **PowerShell's Get-CimInstance cmdlet** using **Microsoft Sysmon Event ID 1 (Process Creation)**.
+
+Windows Management Instrumentation (WMI) provides access to operating system, hardware, software, and management information. Modern PowerShell uses **Get-CimInstance** to query WMI objects via the Common Information Model (CIM).
+
+Threat actors frequently abuse WMI for system reconnaissance, remote execution, lateral movement, and persistence.
+
+Monitoring Get-CimInstance execution helps defenders detect reconnaissance activity and identify suspicious administrative behavior.
+
+---
+
+# MITRE ATT&CK
+
+| Tactic | Technique | ID |
+|---------|-----------|----|
+| Discovery | System Information Discovery | T1082 |
+| Discovery | Software Discovery | T1518 |
+| Execution | Windows Management Instrumentation | T1047 |
+
+---
+
+# Severity
+
+**Medium**
+
+Get-CimInstance is commonly used by administrators for legitimate system management. However, unexpected execution or repeated CIM queries may indicate attacker reconnaissance or post-exploitation activity.
+
+---
+
+# Data Source
+
+**Telemetry Source**
+
+- Microsoft Sysmon
+
+**Event ID**
+
+- Event ID 1 – Process Creation
+
+**Splunk Index**
+
+- `index=sysmon`
+
+---
+
+# Detection Logic
+
+This detection searches for Sysmon Process Creation events where:
+
+- The executed image is **powershell.exe**
+- The command line contains **Get-CimInstance**
+
+The search extracts:
+
+- Timestamp
+- User Account
+- Command Line
+- Parent Process
+
+This enables analysts to determine:
+
+- Who executed the CIM query
+- Which PowerShell command was used
+- Which process launched PowerShell
+
+---
+
+# SPL Query
+
+```spl
+index=sysmon EventCode=1 Image="*powershell.exe" CommandLine="*Get-CimInstance*"
+| table _time User CommandLine ParentImage
+| sort -_time
+```
+
+---
+
+# Validation Steps
+
+The following PowerShell command was executed on the Windows 11 endpoint:
+
+```powershell
+Get-CimInstance Win32_OperatingSystem
+```
+
+Additional validation commands include:
+
+```powershell
+Get-CimInstance Win32_Process
+
+Get-CimInstance Win32_ComputerSystem
+
+Get-CimInstance Win32_BIOS
+```
+
+Each command generated a Sysmon Process Creation event which was successfully forwarded to Splunk using the Splunk Universal Forwarder.
+
+---
+
+# Expected Output
+
+The detection should return:
+
+- Timestamp
+- User Account
+- Command Line
+- Parent Process
+
+# False Positives
+
+Legitimate Get-CimInstance execution may occur during:
+
+- System administration
+- Configuration management
+- Monitoring solutions
+- Inventory collection
+- Enterprise management tools
+- Troubleshooting
+
+The command itself is not malicious and should be evaluated alongside user context and surrounding activity.
+
+---
+
+# Investigation Tips
+
+When investigating Get-CimInstance execution, analysts should verify:
+
+- Was the user expected to perform administrative actions?
+- Was PowerShell launched interactively or by another process?
+- Which CIM classes were queried?
+- Was the activity followed by remote administration?
+- Were multiple discovery commands executed in sequence?
+- Did the activity precede lateral movement or privilege escalation?
+
+Correlate this detection with:
+
+- PowerShell Execution
+- Account Enumeration
+- Network Discovery
+- Privileged Logons
+- Scheduled Task Creation
+- Service Creation
+
+---
+
+# Detection Outcome
+
+✅ Successfully detected PowerShell Get-CimInstance execution during validation.
+
+The detection confirmed that:
+
+- Sysmon Process Creation events were successfully generated.
+- Splunk Universal Forwarder forwarded the telemetry correctly.
+- Splunk indexed the PowerShell CIM execution for analyst investigation.
+
+---
+
+# Analyst Notes
+
+Windows Management Instrumentation (WMI) is one of the most valuable administrative frameworks available on Windows. It is also heavily abused by attackers for reconnaissance, remote execution, and post-exploitation.
+
+PowerShell's Get-CimInstance cmdlet is the modern replacement for Get-WmiObject and is commonly observed during legitimate administration. Analysts should pay particular attention to repeated CIM queries, execution by unexpected users, or CIM activity occurring alongside PowerShell abuse, credential access, or lateral movement.
+
+This detection provides valuable visibility into system reconnaissance and complements other PowerShell-based detections within this Splunk Detection Engineering project.
