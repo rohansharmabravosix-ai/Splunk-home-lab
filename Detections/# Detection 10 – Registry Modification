@@ -1,0 +1,157 @@
+## Description
+
+This detection identifies **Registry Value Modification** events recorded by **Microsoft Sysmon Event ID 13**.
+
+The Windows Registry stores critical operating system and application configuration settings. Threat actors frequently modify registry values to establish persistence, disable security controls, hide malware, or alter system behavior.
+
+Monitoring registry modifications provides defenders with visibility into one of the most commonly abused persistence mechanisms on Windows systems.
+
+---
+
+# MITRE ATT&CK
+
+| Tactic | Technique | ID |
+|---------|-----------|----|
+| Persistence | Modify Registry | T1112 |
+| Defense Evasion | Modify Registry | T1112 |
+
+---
+
+# Severity
+
+**High**
+
+Registry modifications affecting startup locations, security settings, or Windows configuration may indicate malicious activity and should be investigated promptly.
+
+---
+
+# Data Source
+
+**Telemetry Source**
+
+- Microsoft Sysmon
+
+**Event ID**
+
+- Event ID 13 – Registry Value Set
+
+**Splunk Index**
+
+- `index=sysmon`
+
+---
+
+# Detection Logic
+
+This detection searches for Sysmon Registry Value Set events.
+
+The search displays:
+
+- Timestamp
+- Hostname
+- User Account
+- Process responsible for the modification
+- Registry Object
+- Registry Value
+
+This enables analysts to determine:
+
+- Which process modified the registry
+- Which registry key was affected
+- Which user performed the action
+
+---
+
+# SPL Query
+
+```spl
+index=sysmon EventCode=13
+| table _time Computer User Image TargetObject Details
+| sort -_time
+```
+
+---
+
+# Validation Steps
+
+A registry value was modified on the Windows 11 endpoint using PowerShell.
+
+```powershell
+New-ItemProperty `
+-Path "HKCU:\Software\LabTest" `
+-Name "DemoValue" `
+-Value "SplunkLab" `
+-PropertyType String
+```
+
+Alternatively, Registry Editor (`regedit.exe`) may be used to create or modify a registry value.
+
+The resulting Registry Value Set event was recorded by Sysmon and successfully forwarded to Splunk through the Splunk Universal Forwarder.
+
+---
+
+# Expected Output
+
+The detection should return:
+
+- Timestamp
+- Computer Name
+- User Account
+- Executing Process
+- Registry Path
+- Registry Value
+
+# False Positives
+
+Legitimate registry modifications may occur during:
+
+- Software installation
+- Windows Updates
+- Microsoft Office
+- Browser configuration changes
+- Driver installation
+- Administrative configuration changes
+- Enterprise management tools
+
+Registry activity should always be evaluated within the context of the initiating process and affected registry path.
+
+---
+
+# Investigation Tips
+
+When investigating registry modifications, analysts should verify:
+
+- Which process modified the registry?
+- Is the registry path commonly used for persistence?
+- Was the modification expected?
+- Did the modification occur shortly after PowerShell or Command Prompt execution?
+- Was the registry change followed by scheduled task creation, service creation, or process execution?
+
+Pay particular attention to modifications involving:
+
+- `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`
+- `HKLM\Software\Microsoft\Windows\CurrentVersion\Run`
+- `RunOnce`
+- `Policies`
+- `Services`
+- Windows Defender configuration keys
+
+---
+
+# Detection Outcome
+
+✅ Successfully detected a registry value modification during validation.
+
+The detection confirmed that:
+
+- Sysmon Event ID 13 was successfully generated.
+- The Splunk Universal Forwarder forwarded the event correctly.
+- Splunk indexed the registry modification event for analyst investigation.
+
+---
+
+# Analyst Notes
+
+Registry modifications are frequently used by threat actors to establish persistence, bypass security controls, or alter operating system behavior. Although registry changes occur regularly during legitimate software installation and system administration, modifications affecting persistence locations or security-related keys should always receive additional scrutiny.
+
+This detection becomes significantly more valuable when correlated with PowerShell execution, Command Prompt activity, Scheduled Task creation, Service creation, and Privileged Logon events, allowing analysts to reconstruct the complete attack sequence.
