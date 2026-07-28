@@ -1,0 +1,168 @@
+## Description
+
+This analytic provides a high-level overview of **process execution frequency** by counting how many times each executable has been observed within the Sysmon dataset.
+
+Unlike signature-based detections that search for specific attacker techniques, this detection is designed for **behavioral analysis, baselining, and threat hunting**. It enables analysts to understand which executables are most frequently used within the environment and identify uncommon or unexpected processes that may warrant investigation.
+
+This type of analysis is commonly performed during proactive threat hunting and security monitoring.
+
+---
+
+# MITRE ATT&CK
+
+| Tactic | Technique | ID |
+|---------|-----------|----|
+| Discovery | Process Discovery | T1057 |
+
+---
+
+# Severity
+
+**Informational**
+
+This analytic does not indicate malicious activity by itself. Instead, it provides visibility into process execution patterns and supports baseline development and anomaly detection.
+
+---
+
+# Data Source
+
+**Telemetry Source**
+
+- Microsoft Sysmon
+
+**Event ID**
+
+- Event ID 1 – Process Creation
+
+**Splunk Index**
+
+- `index=sysmon`
+
+---
+
+# Detection Logic
+
+This detection searches for all Sysmon Process Creation events.
+
+The search:
+
+- Counts executions for each process image
+- Sorts results from most frequent to least frequent
+
+This enables analysts to identify:
+
+- Frequently executed applications
+- Rare or unexpected executables
+- Potential LOLBins
+- Suspicious administrative utilities
+- Opportunities for further investigation
+
+---
+
+# SPL Query
+
+```spl
+index=sysmon EventCode=1
+| stats count by Image
+| sort -count
+```
+
+---
+
+# Validation Steps
+
+Various Windows utilities and PowerShell commands were executed during the laboratory exercises, including:
+
+```cmd
+whoami
+
+hostname
+
+ipconfig
+
+net user
+
+reg query
+
+schtasks
+
+certutil
+
+rundll32
+
+powershell
+
+Get-CimInstance
+```
+
+The resulting Sysmon Process Creation events were successfully forwarded to Splunk using the Splunk Universal Forwarder.
+
+---
+
+# Expected Output
+
+The detection should return:
+
+- Process Image
+- Number of Executions
+
+Example:
+
+| Process | Count |
+|---------|------:|
+| powershell.exe | 18 |
+| cmd.exe | 11 |
+| reg.exe | 5 |
+| schtasks.exe | 3 |
+| certutil.exe | 2 |
+
+# False Positives
+
+None.
+
+This analytic summarizes process execution and is intended for baseline analysis rather than alert generation.
+
+---
+
+# Investigation Tips
+
+Analysts should review:
+
+- Which executables appear most frequently?
+- Are any uncommon executables present?
+- Are Windows LOLBins appearing more frequently than expected?
+- Has PowerShell usage significantly increased?
+- Are unsigned or unexpected executables appearing in the environment?
+
+Useful follow-up investigations include:
+
+- Process ancestry
+- Command-line analysis
+- User attribution
+- Network connections
+- File creation
+- Registry modification
+
+This analytic serves as an excellent starting point for proactive threat hunting.
+
+---
+
+# Detection Outcome
+
+✅ Successfully generated a process execution frequency summary.
+
+The detection confirmed that:
+
+- Sysmon Process Creation events were successfully collected.
+- Splunk indexed all process execution events.
+- Process frequency statistics were successfully generated for analyst review.
+
+---
+
+# Analyst Notes
+
+Process frequency analysis is a foundational threat hunting technique used to establish normal operating baselines within an environment. By understanding which processes execute most frequently, defenders can quickly identify unusual binaries, rare administrative tools, or Living-off-the-Land Binaries (LOLBins) that may indicate malicious activity.
+
+Unlike traditional signature-based detections, this analytic does not alert on a single event. Instead, it provides valuable operational context that supports anomaly detection, hypothesis-driven hunting, and long-term behavioral monitoring.
+
+This concludes the Detection Engineering section of the Splunk Detection Lab and demonstrates the use of Splunk for signature-based detections, behavioral analytics, statistical aggregation, and proactive threat hunting.
