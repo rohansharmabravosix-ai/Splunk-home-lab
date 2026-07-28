@@ -1,0 +1,145 @@
+## Description
+
+This detection identifies the execution of **PowerShell commands using the `-EncodedCommand` parameter** through **Microsoft Sysmon Event ID 1 (Process Creation)**.
+
+PowerShell supports Base64-encoded command execution using the `-EncodedCommand` argument. While this feature is legitimate and commonly used for automation, threat actors frequently abuse it to obfuscate malicious scripts, bypass security controls, and evade detection.
+
+Monitoring encoded PowerShell execution provides defenders with high-fidelity visibility into suspicious PowerShell activity.
+
+---
+
+# MITRE ATT&CK
+
+| Tactic | Technique | ID |
+|---------|-----------|----|
+| Execution | PowerShell | T1059.001 |
+| Defense Evasion | Obfuscated Files or Information | T1027 |
+
+---
+
+# Severity
+
+**High**
+
+Encoded PowerShell execution is uncommon during normal user activity and should be investigated immediately, particularly when initiated by Office applications, scripts, or unexpected parent processes.
+
+---
+
+# Data Source
+
+**Telemetry Source**
+
+- Microsoft Sysmon
+
+**Event ID**
+
+- Event ID 1 – Process Creation
+
+**Splunk Index**
+
+- `index=sysmon`
+
+---
+
+# Detection Logic
+
+This detection searches for Sysmon Process Creation events where:
+
+- The executed process is **powershell.exe**
+- The command line contains the **-EncodedCommand** parameter
+
+The search displays:
+
+- Timestamp
+- User Account
+- Full Command Line
+- Parent Process
+
+This enables analysts to quickly identify potentially obfuscated PowerShell execution.
+
+---
+
+# SPL Query
+
+index=sysmon EventCode=1 Image="*powershell.exe"
+(CommandLine="*-EncodedCommand*" OR CommandLine="*-enc*" OR CommandLine="*-ExecutionPolicy Bypass*" OR CommandLine="*-nop*" OR CommandLine="*-w hidden*")
+| table _time User CommandLine ParentImage
+
+
+---
+
+# Validation Steps
+
+The following PowerShell command was executed on the Windows 11 endpoint:
+
+```powershell
+powershell.exe -EncodedCommand SQBlAHgAaQB0AA==
+```
+
+This Base64-encoded command generates a Sysmon Process Creation event which was successfully forwarded to Splunk using the Splunk Universal Forwarder.
+
+---
+
+# Expected Output
+
+The detection should return:
+
+- Timestamp
+- User Account
+- Encoded Command Line
+- Parent Process
+
+# False Positives
+
+Legitimate encoded PowerShell execution may occur during:
+
+- Enterprise automation
+- Software deployment
+- Configuration management
+- Microsoft management tools
+- Administrative scripts
+
+Although legitimate use exists, encoded PowerShell should always be reviewed due to its widespread abuse by threat actors.
+
+---
+
+# Investigation Tips
+
+When investigating encoded PowerShell activity, analysts should verify:
+
+- Which process launched PowerShell?
+- Can the Base64 command be decoded?
+- Does the decoded command download or execute additional payloads?
+- Was the execution initiated by Microsoft Office or another application?
+- Was the activity followed by file creation, registry modification, scheduled tasks, or network connections?
+
+Correlate this detection with:
+
+- PowerShell Execution
+- Certutil Usage
+- Rundll32 Execution
+- Scheduled Task Creation
+- Registry Modifications
+- Network Connections
+
+---
+
+# Detection Outcome
+
+✅ Successfully detected encoded PowerShell execution during validation.
+
+The detection confirmed that:
+
+- Sysmon Process Creation events were successfully generated.
+- Splunk Universal Forwarder forwarded the telemetry correctly.
+- Splunk indexed the encoded PowerShell execution for analyst investigation.
+
+---
+
+# Analyst Notes
+
+Encoded PowerShell is one of the most common techniques observed in phishing campaigns, malware loaders, ransomware, and post-exploitation frameworks because it hides the original command from casual inspection.
+
+While legitimate administrative tools occasionally use encoded commands, defenders should treat every occurrence as potentially suspicious until the encoded payload has been decoded and verified.
+
+This detection provides high-value visibility into obfuscated PowerShell execution and forms an essential component of endpoint detection strategies for Windows environments.
