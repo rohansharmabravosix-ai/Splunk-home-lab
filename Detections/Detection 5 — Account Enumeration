@@ -1,0 +1,129 @@
+## Description
+
+This detection identifies the execution of Windows account enumeration commands using **net.exe** or **net1.exe**.
+
+Threat actors frequently enumerate local user accounts after gaining access to a system in order to identify privileged users, service accounts, or potential targets for credential theft and lateral movement.
+
+Monitoring account enumeration commands provides defenders with early visibility into post-compromise reconnaissance activity.
+
+---
+
+# MITRE ATT&CK
+
+| Tactic | Technique | ID |
+|---------|-----------|----|
+| Discovery | Account Discovery | T1087.001 |
+
+---
+
+# Severity
+
+**Medium**
+
+Account enumeration is a legitimate administrative activity but may also indicate attacker reconnaissance when performed by unexpected users or combined with other suspicious behaviors.
+
+---
+
+# Data Source
+
+**Telemetry Source**
+
+- Microsoft Sysmon
+
+**Event ID**
+
+- Event ID 1 – Process Creation
+
+**Splunk Index**
+
+- `index=sysmon`
+
+---
+
+# Detection Logic
+
+This detection searches for execution of the Windows **net.exe** utility where the command line contains the **user** argument.
+
+The detection returns:
+
+- Timestamp
+- Username
+- Executed Process
+- Command Line
+- Parent Process
+
+This allows analysts to determine who attempted to enumerate local user accounts and how the command was executed.
+
+---
+
+# SPL Query
+
+index=wineventlog EventCode=4799 OR EventCode=4798
+
+# Validation Steps
+
+The following command was executed on the Windows 11 endpoint:
+
+```cmd
+net user
+```
+
+The command generated a Sysmon Process Creation event which was successfully forwarded to Splunk through the Splunk Universal Forwarder.
+
+---
+
+# Expected Output
+
+The detection should display:
+
+- Timestamp
+- User Account
+- Executed Process
+- Command Line
+- Parent Process
+
+# False Positives
+
+Legitimate account enumeration may occur during:
+
+- Helpdesk support
+- System administration
+- User account management
+- Security audits
+- Endpoint management tools
+
+Analysts should consider the user context and surrounding activity before determining malicious intent.
+
+---
+
+# Investigation Tips
+
+When reviewing account enumeration activity, analysts should verify:
+
+- Was the user expected to enumerate accounts?
+- Was the command executed interactively or via a script?
+- Did the activity occur shortly after a successful logon?
+- Was account enumeration followed by privilege escalation attempts?
+- Was the endpoint involved in lateral movement or credential access activity?
+
+If multiple discovery commands (e.g., `whoami`, `hostname`, `ipconfig`, `net user`, `net localgroup`) are executed together, the activity may indicate attacker reconnaissance.
+
+---
+
+# Detection Outcome
+
+✅ Successfully detected execution of the **net user** command during validation.
+
+The detection confirmed that:
+
+- Sysmon Process Creation events were successfully collected.
+- Splunk correctly ingested the telemetry.
+- The account enumeration command was visible for analyst investigation.
+
+---
+
+# Analyst Notes
+
+Account Discovery is a common technique used by attackers during the reconnaissance phase following initial access. Identifying local users helps adversaries determine privileged accounts, potential lateral movement targets, and opportunities for credential theft.
+
+This detection should be correlated with additional discovery techniques, authentication events, PowerShell execution, and privilege escalation attempts to build a more complete picture of attacker activity.
