@@ -1,0 +1,165 @@
+# Detection 01 – Process Creation
+
+## Description
+
+This detection identifies process creation events captured by **Microsoft Sysmon (Event ID 1)** and ingested into **Splunk Enterprise**.
+
+Process creation monitoring provides visibility into every executable launched on a Windows endpoint and forms the foundation of endpoint detection and response. Since almost every attacker action begins with creating a process, Event ID 1 is considered one of the highest-value telemetry sources for Security Operations Centers (SOCs).
+
+---
+
+# MITRE ATT&CK
+
+| Tactic | Technique | ID |
+|---------|-----------|----|
+| Execution | Command and Scripting Interpreter | T1059 |
+| Discovery | System Information Discovery | T1082 |
+
+---
+
+# Severity
+
+**Low**
+
+This detection provides baseline visibility into endpoint activity. While process creation is common during normal system operation, it becomes valuable when combined with additional detections or suspicious command-line arguments.
+
+---
+
+# Data Source
+
+**Telemetry Source**
+
+- Microsoft Sysmon
+
+**Event ID**
+
+- Event ID 1 – Process Creation
+
+**Splunk Index**
+
+- `index=sysmon`
+
+---
+
+# Detection Logic
+
+The detection searches for all Sysmon Process Creation events and extracts key information including:
+
+- Timestamp
+- Hostname
+- User Account
+- Executable Name
+- Command Line
+- Parent Process
+
+This allows analysts to quickly understand what process was executed, by whom, and which process launched it.
+
+---
+
+# SPL Query
+
+```spl
+index=sysmon EventCode=1
+| table _time Computer User Image CommandLine ParentImage
+| sort -_time
+```
+
+---
+
+# Validation Steps
+
+The following commands were executed on the Windows 11 endpoint to generate Process Creation events:
+
+```powershell
+whoami
+
+hostname
+
+ipconfig
+```
+
+Each command generated a new Sysmon Event ID 1 which was forwarded to Splunk via the Splunk Universal Forwarder.
+
+---
+
+# Expected Output
+
+The search should return records containing:
+
+- Timestamp
+- Hostname
+- Username
+- Executed Process
+- Command Line
+- Parent Process
+
+Example:
+
+| Time | User | Image | Parent Process |
+|------|------|-------|----------------|
+| 2026-07-27 18:32 | Windows11Lab\User | cmd.exe | explorer.exe |
+| 2026-07-27 18:33 | Windows11Lab\User | ipconfig.exe | cmd.exe |
+
+# False Positives
+
+This detection generates a large number of legitimate events because Windows continuously creates processes during normal operation.
+
+Common legitimate activities include:
+
+- User logons
+- Windows Updates
+- Microsoft Office applications
+- Web browsers
+- Administrative tools
+- Scheduled Tasks
+- Antivirus software
+
+Analysts should investigate unusual:
+
+- Parent-child relationships
+- Command-line arguments
+- Execution paths
+- User accounts
+- Process frequency
+
+---
+
+# Investigation Tips
+
+When reviewing process creation events, consider the following:
+
+- Is the process expected for the user?
+- Is the parent process legitimate?
+- Does the command line contain suspicious arguments?
+- Is the executable running from an unusual directory?
+- Is the process signed by Microsoft or another trusted vendor?
+- Has the process executed multiple times within a short period?
+
+Useful follow-up searches include:
+
+- PowerShell execution
+- Encoded PowerShell
+- Certutil usage
+- Rundll32 execution
+- Registry modification events
+
+---
+
+# Detection Outcome
+
+✅ Successfully detected all manually executed commands on the Windows 11 endpoint.
+
+The detection confirmed that:
+
+- Sysmon was correctly configured.
+- Process Creation events were generated.
+- Splunk Universal Forwarder successfully forwarded telemetry.
+- Splunk indexed the events correctly.
+
+---
+
+# Analyst Notes
+
+Process Creation (Sysmon Event ID 1) is one of the most valuable telemetry sources available to defenders. It provides complete visibility into endpoint execution activity and serves as the foundation for many advanced detections including PowerShell abuse, LOLBins, malware execution, persistence techniques, and privilege escalation.
+
+This detection establishes the baseline required for the remaining detections within this Splunk Detection Engineering project.
