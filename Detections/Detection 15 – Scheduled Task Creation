@@ -1,0 +1,154 @@
+## Description
+
+This detection identifies the execution of **Windows Scheduled Tasks (schtasks.exe)** using **Microsoft Sysmon Event ID 1 (Process Creation)**.
+
+Windows Task Scheduler allows users and administrators to automate program execution based on specific triggers. Threat actors frequently abuse scheduled tasks to establish persistence, execute malware, or maintain access after compromising a system.
+
+Monitoring `schtasks.exe` execution enables defenders to detect suspicious persistence mechanisms and unauthorized task creation.
+
+---
+
+# MITRE ATT&CK
+
+| Tactic | Technique | ID |
+|---------|-----------|----|
+| Persistence | Scheduled Task/Job: Scheduled Task | T1053.005 |
+| Execution | Scheduled Task/Job: Scheduled Task | T1053.005 |
+
+---
+
+# Severity
+
+**High**
+
+Scheduled tasks are commonly used for legitimate administration; however, unexpected task creation—particularly by non-administrative users or from unusual parent processes—should be investigated immediately.
+
+---
+
+# Data Source
+
+**Telemetry Source**
+
+- Microsoft Sysmon
+
+**Event ID**
+
+- Event ID 1 – Process Creation
+
+**Splunk Index**
+
+- `index=sysmon`
+
+---
+
+# Detection Logic
+
+This detection searches for Sysmon Process Creation events where the executed image is **schtasks.exe**.
+
+The search extracts:
+
+- Timestamp
+- User Account
+- Command Line
+- Parent Process
+
+This enables analysts to determine:
+
+- Who created or modified the scheduled task
+- Which command was executed
+- Which process launched `schtasks.exe`
+
+---
+
+# SPL Query
+
+```spl
+index=sysmon EventCode=1 Image="*schtasks.exe"
+| table _time User CommandLine ParentImage
+| sort -_time
+```
+
+---
+
+# Validation Steps
+
+The following command was executed on the Windows 11 endpoint:
+
+```cmd
+schtasks /Create /SC ONCE /TN "LabTask" /TR "notepad.exe" /ST 23:59
+```
+
+After validation, the task was removed using:
+
+```cmd
+schtasks /Delete /TN "LabTask" /F
+```
+
+The command generated a Sysmon Process Creation event which was successfully forwarded to Splunk using the Splunk Universal Forwarder.
+
+---
+
+# Expected Output
+
+The detection should display:
+
+- Timestamp
+- User Account
+- Command Line
+- Parent Process
+
+# False Positives
+
+Legitimate scheduled task activity may include:
+
+- Windows Updates
+- Enterprise management software
+- Backup applications
+- Antivirus products
+- Administrative automation
+- Software installation
+
+Analysts should investigate tasks created by unexpected users, unusual parent processes, or tasks executing suspicious binaries.
+
+---
+
+# Investigation Tips
+
+When investigating scheduled task creation, analysts should verify:
+
+- Who created the task?
+- What executable will the task launch?
+- Does the task execute from a suspicious directory?
+- Was the task created shortly after PowerShell or Command Prompt execution?
+- Was the task configured to run with elevated privileges?
+- Is the task scheduled for immediate execution?
+
+Correlate this detection with:
+
+- PowerShell Execution
+- Encoded PowerShell
+- Registry Modifications
+- File Creation
+- Privileged Logons
+- Service Creation
+
+---
+
+# Detection Outcome
+
+✅ Successfully detected Scheduled Task creation during validation.
+
+The detection confirmed that:
+
+- Sysmon Event ID 1 was successfully generated.
+- Splunk Universal Forwarder forwarded the telemetry correctly.
+- Splunk indexed the Scheduled Task execution event for analyst investigation.
+
+---
+
+# Analyst Notes
+
+Scheduled Tasks are one of the most common Windows persistence mechanisms used by both legitimate software and threat actors. Adversaries frequently create scheduled tasks to maintain persistence, execute malware after reboot, or repeatedly launch payloads while blending into normal Windows administration.
+
+Although scheduled task creation is a legitimate administrative function, defenders should carefully review tasks executing from user-writable directories, launching PowerShell, Command Prompt, Rundll32, or other LOLBins. Correlating scheduled task creation with other endpoint telemetry significantly improves detection fidelity and helps identify post-exploitation activity.
+
