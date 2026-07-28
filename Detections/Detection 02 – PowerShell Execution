@@ -1,0 +1,167 @@
+## Description
+
+This detection identifies the execution of **Windows PowerShell** on monitored endpoints using **Sysmon Event ID 1 (Process Creation)**.
+
+PowerShell is one of the most powerful administration tools available on Windows systems and is frequently abused by threat actors for execution, persistence, privilege escalation, defense evasion, credential access, and lateral movement.
+
+Monitoring PowerShell execution provides defenders with early visibility into potentially malicious activity while also establishing a baseline of legitimate administrative usage.
+
+---
+
+# MITRE ATT&CK
+
+| Tactic | Technique | ID |
+|---------|-----------|----|
+| Execution | PowerShell | T1059.001 |
+
+---
+
+# Severity
+
+**Medium**
+
+PowerShell is widely used by system administrators, making it a legitimate tool in many environments. However, unexpected or unusual PowerShell activity should always be investigated due to its frequent use in cyber attacks.
+
+---
+
+# Data Source
+
+**Telemetry Source**
+
+- Microsoft Sysmon
+
+**Event ID**
+
+- Event ID 1 – Process Creation
+
+**Splunk Index**
+
+- `index=sysmon`
+
+---
+
+# Detection Logic
+
+The detection searches for Sysmon Process Creation events where the executed image is **powershell.exe**.
+
+The search returns:
+
+- Timestamp
+- Username
+- Executed Process
+- Command Line
+- Parent Process
+
+This allows analysts to determine:
+
+- Who executed PowerShell
+- How PowerShell was launched
+- Which process started it
+- The exact command that was executed
+
+---
+
+# SPL Query
+
+```spl
+index=sysmon EventCode=1 Image="*powershell.exe"
+| table _time User CommandLine ParentImage
+| sort -_time
+```
+
+---
+
+# Validation Steps
+
+The following PowerShell commands were executed on the Windows 11 endpoint:
+
+```powershell
+whoami
+
+hostname
+
+ipconfig
+
+Get-Process
+```
+
+These commands generated Sysmon Process Creation events which were forwarded to Splunk through the Splunk Universal Forwarder.
+
+---
+
+# Expected Output
+
+The search should display:
+
+- Timestamp
+- User Account
+- powershell.exe
+- Command Line
+- Parent Process
+
+Example:
+
+| Time | User | Image | Parent Process |
+|------|------|-------|----------------|
+| 2026-07-27 18:45 | Windows11Lab\User | powershell.exe | explorer.exe |
+
+# False Positives
+
+Legitimate PowerShell activity may include:
+
+- System administration
+- Software installation
+- Windows Updates
+- Automation scripts
+- Microsoft Management tools
+- Enterprise administration
+
+PowerShell usage alone should not be considered malicious without additional context.
+
+---
+
+# Investigation Tips
+
+When investigating PowerShell execution, analysts should verify:
+
+- Was PowerShell launched by the expected user?
+- What process launched PowerShell?
+- Does the command line contain suspicious parameters?
+- Was PowerShell executed from an unusual directory?
+- Was PowerShell started repeatedly within a short period?
+- Was PowerShell followed by network connections, file creation, or registry modifications?
+
+Higher-risk indicators include:
+
+- Encoded commands
+- Hidden windows
+- Download commands
+- Execution Policy bypass
+- Remote script execution
+
+---
+
+# Detection Outcome
+
+✅ Successfully detected PowerShell execution generated during validation.
+
+The detection confirmed:
+
+- Sysmon Process Creation events were successfully collected.
+- PowerShell executions were forwarded to Splunk.
+- Command-line arguments were visible for analyst investigation.
+
+---
+
+# Analyst Notes
+
+PowerShell remains one of the most commonly abused Windows utilities during cyber attacks. While this detection focuses on identifying PowerShell execution, it serves as the foundation for more advanced detections such as:
+
+- Encoded PowerShell
+- PowerShell Download Cradles
+- PowerShell Empire
+- Invoke-WebRequest abuse
+- AMSI bypass attempts
+- Living-off-the-Land (LOLBins)
+
+This detection should be used alongside additional behavioral detections to distinguish legitimate administrative activity from malicious PowerShell usage.
