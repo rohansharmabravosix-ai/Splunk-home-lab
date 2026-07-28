@@ -1,0 +1,154 @@
+## Description
+
+This detection identifies execution of the **Windows Service Control utility (`sc.exe`)** using **Microsoft Sysmon Event ID 1 (Process Creation)**.
+
+`sc.exe` is a legitimate Windows administration utility used to create, configure, start, stop, delete, and query Windows services. Because services can execute with elevated privileges and automatically start during system boot, attackers frequently abuse them to establish persistence or execute malicious code.
+
+Monitoring `sc.exe` execution provides defenders with visibility into potential service abuse and persistence attempts.
+
+---
+
+# MITRE ATT&CK
+
+| Tactic | Technique | ID |
+|---------|-----------|----|
+| Persistence | Create or Modify System Process: Windows Service | T1543.003 |
+| Privilege Escalation | Create or Modify System Process: Windows Service | T1543.003 |
+
+---
+
+# Severity
+
+**High**
+
+Service creation and modification are administrative actions that should be performed only by authorized users. Unexpected service activity should be investigated immediately.
+
+---
+
+# Data Source
+
+**Telemetry Source**
+
+- Microsoft Sysmon
+
+**Event ID**
+
+- Event ID 1 – Process Creation
+
+**Splunk Index**
+
+- `index=sysmon`
+
+---
+
+# Detection Logic
+
+This detection searches for Sysmon Process Creation events where the executed image is **sc.exe**.
+
+The query returns:
+
+- Timestamp
+- User Account
+- Executed Process
+- Command Line
+- Parent Process
+
+This enables analysts to determine who interacted with the Windows Service Control Manager and how.
+
+---
+
+Spl Query
+
+index=sysmon EventCode=1 Image="*sc.exe"
+(CommandLine="* create *" OR CommandLine="* config *" OR CommandLine="* delete *")
+| table _time User CommandLine ParentImage
+
+# Validation Steps
+
+The following command was executed on the Windows 11 endpoint:
+
+```cmd
+sc query
+```
+
+Alternative validation commands include:
+
+```cmd
+sc qc EventLog
+
+sc start EventLog
+
+sc stop <ServiceName>
+
+sc create LabService binPath= "C:\Windows\System32\notepad.exe"
+```
+
+The execution generated a Sysmon Process Creation event which was successfully forwarded to Splunk through the Splunk Universal Forwarder.
+
+---
+
+# Expected Output
+
+The detection should display:
+
+- Timestamp
+- User Account
+- Executed Process
+- Command Line
+- Parent Process
+
+# False Positives
+
+Legitimate service activity may include:
+
+- Windows Updates
+- Software installation
+- System administration
+- Endpoint management tools
+- Antivirus software
+- Enterprise monitoring platforms
+
+Service-related commands should always be evaluated alongside user context and the affected service.
+
+---
+
+# Investigation Tips
+
+When investigating Service Control activity, analysts should verify:
+
+- Which service was queried, created, modified, started, or stopped?
+- Was the action performed by an authorized administrator?
+- Was the command executed from Command Prompt or PowerShell?
+- Was a new service created?
+- Does the service point to a suspicious executable?
+- Was the activity followed by file creation or registry modifications?
+
+Correlate this detection with:
+
+- Privileged Logons (Event ID 4672)
+- PowerShell Execution
+- File Creation (Sysmon Event ID 11)
+- Registry Modification (Sysmon Event ID 13)
+- Scheduled Task Creation
+- Network Connections
+
+---
+
+# Detection Outcome
+
+✅ Successfully detected execution of `sc.exe` during validation.
+
+The detection confirmed that:
+
+- Sysmon Event ID 1 was successfully generated.
+- Splunk Universal Forwarder forwarded the telemetry correctly.
+- Splunk indexed the Service Control execution event for analyst investigation.
+
+---
+
+# Analyst Notes
+
+Windows services are one of the most commonly abused persistence mechanisms. Adversaries often create new services or modify existing ones to execute malware with elevated privileges and survive system reboots.
+
+Although service management is a routine administrative activity, defenders should pay close attention to service creation, changes to service binaries, or services pointing to executables outside standard Windows directories. Combining this detection with registry, PowerShell, and file creation telemetry provides a much stronger view of potential attacker persistence.
+
