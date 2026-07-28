@@ -1,0 +1,147 @@
+## Description
+
+**Detection Type:** Behavioral Analytics
+
+This behavioral detection identifies users who execute **PowerShell multiple times within a five-minute window**.
+
+While a single PowerShell execution is often legitimate, repeated executions in a short period may indicate automated scripting, malware activity, post-exploitation, or attacker reconnaissance.
+
+Rather than detecting a specific command, this analytic identifies abnormal execution patterns that warrant further investigation.
+
+---
+
+# MITRE ATT&CK
+
+| Tactic | Technique | ID |
+|---------|-----------|----|
+| Execution | PowerShell | T1059.001 |
+| Discovery | System Information Discovery | T1082 |
+
+---
+
+# Severity
+
+**Medium**
+
+Multiple PowerShell executions may occur during administration or automation. However, repeated interactive executions by standard users should be investigated.
+
+---
+
+# Data Source
+
+**Telemetry Source**
+
+- Microsoft Sysmon
+
+**Event ID**
+
+- Event ID 1 – Process Creation
+
+**Splunk Index**
+
+- `index=sysmon`
+
+---
+
+# Detection Logic
+
+This analytic searches for PowerShell process creation events.
+
+The search:
+
+- Groups events into five-minute intervals
+- Counts PowerShell executions per user
+- Displays users who executed PowerShell three or more times within the same time window
+
+This helps identify potentially suspicious automation or attacker activity.
+
+---
+
+# Validation Steps
+
+PowerShell was launched multiple times within five minutes.
+
+Example:
+
+```powershell
+powershell
+
+exit
+
+powershell
+
+exit
+
+powershell
+
+exit
+```
+
+Alternatively, several PowerShell commands were executed consecutively during the detection validation process.
+
+The resulting Process Creation events were successfully forwarded to Splunk using the Splunk Universal Forwarder.
+
+---
+
+# Expected Output
+
+The detection should display:
+
+- Five-minute time bucket
+- User Account
+- Number of PowerShell executions
+
+# False Positives
+
+Legitimate scenarios include:
+
+- System administration
+- IT automation
+- Software deployment
+- Security testing
+- Detection Engineering labs
+- PowerShell scripting
+
+Repeated PowerShell execution should always be interpreted within operational context.
+
+---
+
+# Investigation Tips
+
+When investigating repeated PowerShell executions, analysts should verify:
+
+- Which commands were executed?
+- Were encoded commands used?
+- Did PowerShell launch child processes?
+- Was the activity initiated by another application?
+- Were files created or registry keys modified?
+- Did the activity result in network connections?
+
+Correlate this detection with:
+
+- Encoded PowerShell
+- File Creation
+- Registry Modification
+- Certutil Usage
+- Rundll32 Execution
+- Scheduled Task Creation
+
+---
+
+# Detection Outcome
+
+✅ Successfully detected multiple PowerShell executions during validation.
+
+The detection confirmed that:
+
+- Sysmon Event ID 1 was successfully generated.
+- Splunk Universal Forwarder forwarded the telemetry correctly.
+- Splunk grouped the events into a five-minute window and identified repeated PowerShell execution.
+
+---
+
+# Analyst Notes
+
+Behavior-based detections such as frequency analysis significantly reduce false positives compared to single-event detections. While individual PowerShell executions are common in Windows environments, multiple executions over a short period may indicate attacker reconnaissance, automation, or post-exploitation activity.
+
+This analytic demonstrates how simple statistical aggregation within Splunk can identify suspicious behavior without relying on known malware signatures or specific command-line arguments. Similar techniques are widely used in modern Security Operations Centers to detect anomalous user activity.
